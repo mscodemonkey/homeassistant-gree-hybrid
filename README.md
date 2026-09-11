@@ -1,5 +1,8 @@
 # Gree Hybrid for Home Assistant
 
+[![My Home Assistant](https://img.shields.io/badge/Home%20Assistant-%2341BDF5.svg?style=flat&logo=home-assistant&label=My)](https://my.home-assistant.io/redirect/hacs_repository/?owner=mscodemonkey&repository=homeassistant-gree-hybrid&category=integration)
+[![MIT licence](https://img.shields.io/badge/licence-MIT-blue.svg)](https://github.com/mscodemonkey/homeassistant-gree-hybrid/blob/main/LICENSE)
+
 <p align="center">
   <img src="brand/icon@2x.png" width="160" alt="Gree Hybrid icon">
 </p>
