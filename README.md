@@ -4,7 +4,7 @@
 [![MIT licence](https://img.shields.io/badge/licence-MIT-blue.svg)](https://github.com/mscodemonkey/homeassistant-gree-hybrid/blob/main/LICENSE)
 
 <p align="center">
-  <img src="brand/icon@2x.png" width="160" alt="Gree Hybrid icon">
+  <img src="https://raw.githubusercontent.com/mscodemonkey/homeassistant-gree-hybrid/main/brand/icon@2x.png" width="160" alt="Gree Hybrid icon">
 </p>
 
 Gree Hybrid puts local and cloud-only Gree air conditioners into one Home

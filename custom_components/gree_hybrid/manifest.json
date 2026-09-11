@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/mscodemonkey/homeassistant-gree-hybrid/issues",
   "loggers": ["aiomqtt"],
   "requirements": ["aiomqtt==2.5.0", "pycryptodome==3.23.0"],
-  "version": "0.2.0"
+  "version": "0.2.1"
 }
