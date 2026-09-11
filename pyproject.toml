@@ -1,0 +1,25 @@
+[project]
+name = "homeassistant-gree-hybrid"
+version = "0.1.0"
+description = "Self-contained local and cloud Gree integration for Home Assistant"
+requires-python = ">=3.12"
+dependencies = [
+    "aiomqtt==2.5.0",
+    "pycryptodome==3.23.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "ruff>=0.13.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

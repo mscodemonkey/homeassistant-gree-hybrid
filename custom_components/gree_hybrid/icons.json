@@ -1,0 +1,32 @@
+{
+  "entity": {
+    "sensor": {
+      "energy_total": {
+        "default": "mdi:lightning-bolt"
+      },
+      "humidity": {
+        "default": "mdi:water-percent"
+      },
+      "compressor_frequency": {
+        "default": "mdi:sine-wave"
+      }
+    },
+    "switch": {
+      "light": {
+        "default": "mdi:lightbulb"
+      },
+      "quiet": {
+        "default": "mdi:volume-off"
+      },
+      "fresh_air": {
+        "default": "mdi:air-filter"
+      },
+      "xfan": {
+        "default": "mdi:fan"
+      },
+      "health_mode": {
+        "default": "mdi:leaf"
+      }
+    }
+  }
+}
