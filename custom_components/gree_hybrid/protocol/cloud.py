@@ -1,4 +1,8 @@
-"""Cloud MQTT transport for Gree devices."""
+"""Exchange device state through the account-owned MQTT connection.
+
+Each CloudDevice owns its response handler and removes it when discovery or
+entry unload closes the transport. Coordinators consume its state and commands.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +31,11 @@ def parent_mac(mac: str) -> str:
 
 
 class CloudDevice(GreeDevice):
-    """Gree device controlled through its regional cloud MQTT broker."""
+    """Own one device's state requests on the shared regional MQTT connection.
+
+    Discovery creates this transport and the account entry closes it at unload.
+    It owns its handler and request lock, but never the shared MQTT connection.
+    """
 
     def __init__(
         self,
@@ -49,6 +57,7 @@ class CloudDevice(GreeDevice):
         mqtt_client.add_message_handler(self._handle_message)
 
     async def bind(self) -> None:
+        """Subscribe and require an initial status response before setup succeeds."""
         await self.mqtt_client.subscribe_to_device(self.parent_mac)
         await self.update_state()
 
@@ -97,6 +106,7 @@ class CloudDevice(GreeDevice):
             self.apply_state(state)
 
     async def update_state(self) -> None:
+        """Refresh cached properties, raising if no valid response arrives in time."""
         names = [prop.value for prop in Props] + EXTRA_STATUS_PROPERTIES + ["hid"]
         state = await self._request({"t": "status", "cols": names})
         self.apply_state(state)
@@ -135,6 +145,7 @@ class CloudDevice(GreeDevice):
         return commands
 
     async def push_state_update(self) -> None:
+        """Send dirty properties in protocol order and tolerate missing acknowledgements."""
         if not self._dirty:
             return
         for command in self._commands():
@@ -146,8 +157,11 @@ class CloudDevice(GreeDevice):
         self._dirty.clear()
 
     async def close(self) -> None:
-        await self.mqtt_client.unsubscribe_from_device(self.parent_mac)
-        self.mqtt_client.remove_message_handler(self._handle_message)
+        """Detach the response handler even when broker unsubscribe fails."""
+        try:
+            await self.mqtt_client.unsubscribe_from_device(self.parent_mac)
+        finally:
+            self.mqtt_client.remove_message_handler(self._handle_message)
 
     async def replace_mqtt_client(self, mqtt_client: GreeMqttClient) -> None:
         """Move this device to a newly authenticated shared MQTT connection."""
