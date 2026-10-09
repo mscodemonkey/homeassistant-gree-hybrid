@@ -1,4 +1,8 @@
-"""Home Assistant coordinators and hybrid Gree discovery."""
+"""Discover Gree transports and expose per-device polling to entity platforms.
+
+Each account entry owns its coordinators and transport lifetimes. Discovery
+isolates device failures before handing responsive coordinators to platform setup.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,7 @@ from typing import Any
 from homeassistant.components.network import async_get_ipv4_broadcast_addresses
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -70,7 +75,11 @@ async def _reconnect(hass: HomeAssistant, entry: GreeHybridConfigEntry) -> bool:
 
 
 class DeviceDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Poll and command one device through its selected transport."""
+    """Poll and command an entry-owned device through its selected transport.
+
+    Entity platforms listen to this coordinator. The account entry closes its
+    device on unload, while discovery closes it if initialization fails.
+    """
 
     config_entry: GreeHybridConfigEntry
 
@@ -124,6 +133,7 @@ class DeviceDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return copy.deepcopy(self.device.raw_properties)
 
     async def push_state_update(self) -> None:
+        """Send pending changes, retrying once after an MQTT reconnection."""
         try:
             await self.device.push_state_update()
         except Exception as error:
@@ -135,7 +145,11 @@ class DeviceDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 
 class CloudDiscoveryService:
-    """Join Gree+ account discovery with local UDP discovery by MAC address."""
+    """Build account-owned coordinators for responsive cloud and LAN devices.
+
+    The config entry owns returned transports until unload. Failed devices are
+    closed and omitted until the next entry reload. Account failures propagate.
+    """
 
     def __init__(
         self, hass: HomeAssistant, entry: GreeHybridConfigEntry, api: GreeCloudApi
@@ -147,6 +161,7 @@ class CloudDiscoveryService:
     async def discover_devices(
         self, mqtt_client: GreeMqttClient
     ) -> list[DeviceDataUpdateCoordinator]:
+        """Return responsive devices, or request a setup retry if none respond."""
         account_devices = await self.api.get_all_devices()
         broadcasts = [
             str(address) for address in await async_get_ipv4_broadcast_addresses(self.hass)
@@ -159,65 +174,84 @@ class CloudDiscoveryService:
         local_by_mac = local_devices_by_mac(local_devices)
 
         coordinators: list[DeviceDataUpdateCoordinator] = []
-        current_device: GreeDevice | None = None
         try:
             for account_device in account_devices:
-                local_info = matching_local_device(account_device.mac, local_by_mac)
-                device: GreeDevice
-                transport: str
-                if local_info is not None:
-                    device = LocalDevice(
-                        DeviceInfo(
-                            ip=local_info.ip,
-                            port=local_info.port,
-                            mac=account_device.mac,
-                            name=account_device.name,
-                            brand=local_info.brand,
-                            model=account_device.model or local_info.model,
-                            version=account_device.version or local_info.version,
-                        )
+                try:
+                    coordinator = await self._setup_device(
+                        mqtt_client, account_device, local_by_mac
                     )
-                    current_device = device
-                    try:
-                        await device.bind()
-                        transport = TRANSPORT_LOCAL
-                    except Exception as error:
-                        await device.close()
-                        _LOGGER.info(
-                            "LAN binding failed for %s; selecting cloud: %s",
-                            account_device.name,
-                            error,
-                        )
-                        device = self._cloud_device(mqtt_client, account_device)
-                        current_device = device
-                        await device.bind()
-                        transport = TRANSPORT_CLOUD
-                else:
+                except Exception as error:
+                    _LOGGER.warning(
+                        "Skipping an unreachable Gree device during startup (%s). "
+                        "Reload the integration once the device is online",
+                        type(error).__name__,
+                    )
+                    continue
+                coordinators.append(coordinator)
+                async_dispatcher_send(self.hass, DISPATCH_DEVICE_DISCOVERED, coordinator)
+            if account_devices and not coordinators:
+                raise ConfigEntryNotReady("No Gree devices responded during startup")
+            return coordinators
+        except BaseException:
+            for coordinator in coordinators:
+                await self._close_device(coordinator.device)
+            raise
+
+    async def _setup_device(
+        self,
+        mqtt_client: GreeMqttClient,
+        account_device: Any,
+        local_by_mac: dict[str, Any],
+    ) -> DeviceDataUpdateCoordinator:
+        """Transfer one bound, refreshed transport to a coordinator or close it.
+
+        Cancellation propagates after cleanup. A second cancellation during
+        cleanup can interrupt closing, as it can during normal entry unload.
+        """
+        local_info = matching_local_device(account_device.mac, local_by_mac)
+        device: GreeDevice | None = None
+        try:
+            if local_info is not None:
+                device = LocalDevice(
+                    DeviceInfo(
+                        ip=local_info.ip,
+                        port=local_info.port,
+                        mac=account_device.mac,
+                        name=account_device.name,
+                        brand=local_info.brand,
+                        model=account_device.model or local_info.model,
+                        version=account_device.version or local_info.version,
+                    )
+                )
+                try:
+                    await device.bind()
+                    transport = TRANSPORT_LOCAL
+                except Exception as error:
+                    await self._close_device(device)
+                    device = None
+                    _LOGGER.debug("LAN binding failed, selecting cloud (%s)", type(error).__name__)
                     device = self._cloud_device(mqtt_client, account_device)
-                    current_device = device
                     await device.bind()
                     transport = TRANSPORT_CLOUD
-
-                _LOGGER.info(
-                    "Using %s transport for %s (MAC: %s)",
-                    transport,
-                    device.device_info.name,
-                    device.device_info.mac,
-                )
-                coordinator = DeviceDataUpdateCoordinator(
-                    self.hass, self.entry, device, transport
-                )
-                await coordinator.async_config_entry_first_refresh()
-                coordinators.append(coordinator)
-                current_device = None
-                async_dispatcher_send(self.hass, DISPATCH_DEVICE_DISCOVERED, coordinator)
-            return coordinators
-        except Exception:
-            if current_device is not None:
-                await current_device.close()
-            for coordinator in coordinators:
-                await coordinator.device.close()
+            else:
+                device = self._cloud_device(mqtt_client, account_device)
+                await device.bind()
+                transport = TRANSPORT_CLOUD
+            coordinator = DeviceDataUpdateCoordinator(self.hass, self.entry, device, transport)
+            await coordinator.async_config_entry_first_refresh()
+            return coordinator
+        except BaseException:
+            if device is not None:
+                await self._close_device(device)
             raise
+
+    @staticmethod
+    async def _close_device(device: GreeDevice) -> None:
+        """Close a failed transport without masking its original startup error."""
+        try:
+            await device.close()
+        except Exception as error:
+            _LOGGER.debug("Gree device cleanup failed (%s)", type(error).__name__)
 
     @staticmethod
     def _cloud_device(mqtt_client: GreeMqttClient, account_device: Any) -> CloudDevice:

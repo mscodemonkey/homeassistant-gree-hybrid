@@ -92,6 +92,11 @@ The integration imports the devices visible to that account and assigns a
 transport at startup. Reload the integration if you add or remove an air
 conditioner, change its network, or want it to repeat local discovery.
 
+An offline or unresponsive unit does not prevent the other units from loading.
+Its existing entities stay unavailable. Once it is back online, reload Gree
+Hybrid to discover it again. If no units respond, Home Assistant retries setup
+instead of loading an empty integration.
+
 ## What is supported
 
 - Power and HVAC mode
