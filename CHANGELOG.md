@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 - 2026-10-09
 
 - Start responsive units even when another unit is offline. Reload the integration
   after the skipped unit returns online to discover it again.
