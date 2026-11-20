@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 - 2026-11-20
+
+- Report CO2 and PM2.5 sensors on fresh-air (ERV) units. The extra columns are
+  requested for every unit but only answered by models that carry the sensors, so
+  air conditioners create no additional entities.
+
 ## 0.2.2 - 2026-10-09
 
 - Start responsive units even when another unit is offline. Reload the integration

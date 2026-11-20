@@ -12,6 +12,8 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
+    CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+    CONCENTRATION_PARTS_PER_MILLION,
     PERCENTAGE,
     EntityCategory,
     UnitOfEnergy,
@@ -93,6 +95,34 @@ def _has_humidity(device: GreeDevice) -> bool:
     return isinstance(raw, (int, float)) and 0 < raw <= 100
 
 
+def _air_quality(device: GreeDevice, column: str) -> float | None:
+    """Return a non-negative air-quality reading, or None when absent."""
+    raw = device.raw_properties.get(column)
+    if isinstance(raw, (int, float)) and raw >= 0:
+        return float(raw)
+    return None
+
+
+def _co2(device: GreeDevice) -> float | None:
+    """Return CO2 in ppm."""
+    return _air_quality(device, "CO2")
+
+
+def _pm25(device: GreeDevice) -> float | None:
+    """Return PM2.5 in micrograms per cubic metre."""
+    return _air_quality(device, "PM2P5")
+
+
+def _has_co2(device: GreeDevice) -> bool:
+    """Fresh-air units report CO2; air conditioners omit the column entirely."""
+    return "CO2" in device.raw_properties
+
+
+def _has_pm25(device: GreeDevice) -> bool:
+    """Fresh-air units report PM2.5; air conditioners omit the column entirely."""
+    return "PM2P5" in device.raw_properties
+
+
 GREE_CLOUD_SENSORS: tuple[GreeCloudSensorEntityDescription, ...] = (
     GreeCloudSensorEntityDescription(
         key="Energy",
@@ -122,6 +152,24 @@ GREE_CLOUD_SENSORS: tuple[GreeCloudSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_compressor_frequency,
         exists_fn=_has_compressor_frequency,
+    ),
+    GreeCloudSensorEntityDescription(
+        key="CO2",
+        translation_key="co2",
+        device_class=SensorDeviceClass.CO2,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=CONCENTRATION_PARTS_PER_MILLION,
+        value_fn=_co2,
+        exists_fn=_has_co2,
+    ),
+    GreeCloudSensorEntityDescription(
+        key="PM2P5",
+        translation_key="pm25",
+        device_class=SensorDeviceClass.PM25,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=CONCENTRATION_MICROGRAMS_PER_CUBIC_METER,
+        value_fn=_pm25,
+        exists_fn=_has_pm25,
     ),
 )
 
