@@ -1,23 +1,14 @@
 {
   "domain": "gree_hybrid",
   "name": "Gree Hybrid",
-  "codeowners": [
-    "@mscodemonkey"
-  ],
+  "codeowners": ["@mscodemonkey"],
   "config_flow": true,
-  "dependencies": [
-    "network"
-  ],
+  "dependencies": ["network"],
   "documentation": "https://github.com/mscodemonkey/homeassistant-gree-hybrid",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/mscodemonkey/homeassistant-gree-hybrid/issues",
-  "loggers": [
-    "aiomqtt"
-  ],
-  "requirements": [
-    "aiomqtt==2.5.0",
-    "pycryptodome==3.23.0"
-  ],
+  "loggers": ["aiomqtt"],
+  "requirements": ["aiomqtt==2.5.0", "pycryptodome==3.23.0"],
   "version": "0.3.0"
 }
