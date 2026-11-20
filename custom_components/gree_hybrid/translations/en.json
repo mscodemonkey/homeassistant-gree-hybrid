@@ -30,6 +30,12 @@
       },
       "compressor_frequency": {
         "name": "Compressor frequency"
+      },
+      "co2": {
+        "name": "CO2"
+      },
+      "pm25": {
+        "name": "PM2.5"
       }
     },
     "switch": {

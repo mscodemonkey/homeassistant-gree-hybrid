@@ -9,6 +9,7 @@ import pytest
 from gree_hybrid_protocol.cloud import CloudDevice, parent_mac
 from gree_hybrid_protocol.crypto import EcbCipher, GcmCipher
 from gree_hybrid_protocol.device import GreeDevice, Mode, Props, TemperatureUnits
+from gree_hybrid_protocol.local import STATUS_PROPERTIES
 from gree_hybrid_protocol.models import DeviceInfo
 
 COMMAND = {"mac": "580d0d35fcd5", "t": "cmd", "opt": ["Pow"], "p": [1]}
@@ -143,3 +144,20 @@ def test_cloud_commands_apply_mode_before_power() -> None:
 def test_parent_mac_strips_cloud_child_suffix_only() -> None:
     assert parent_mac("aabbccddeeff00") == "aabbccddeeff"
     assert parent_mac("aabbccddeeff") == "aabbccddeeff"
+
+
+def test_status_request_asks_for_air_quality_columns() -> None:
+    """Fresh-air units only report columns a request names explicitly."""
+    assert "CO2" in STATUS_PROPERTIES
+    assert "PM2P5" in STATUS_PROPERTIES
+
+
+def test_air_quality_columns_are_retained_in_raw_properties() -> None:
+    """Air-quality readings reach the sensor layer unchanged."""
+    device = MemoryDevice(device_info())
+
+    device.apply_state({"Pow": 1, "CO2": 812, "PM2P5": 3})
+
+    assert device.raw_properties["CO2"] == 812
+    assert device.raw_properties["PM2P5"] == 3
+    assert device.power is True

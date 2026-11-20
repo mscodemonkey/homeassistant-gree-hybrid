@@ -14,7 +14,11 @@ from .models import DeviceInfo
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 7000
-STATUS_PROPERTIES = [prop.value for prop in Props]
+# Fresh-air and ERV units report air-quality columns that are not part of the
+# shared Props enum. Devices silently ignore column names they do not support,
+# so requesting them for every unit is harmless.
+EXTRA_STATUS_COLUMNS: tuple[str, ...] = ("CO2", "PM2P5")
+STATUS_PROPERTIES = [prop.value for prop in Props] + list(EXTRA_STATUS_COLUMNS)
 
 
 def _outer_packet(mac: str, inner: dict[str, Any], *, initial: bool = False) -> dict[str, Any]:
